@@ -15,47 +15,43 @@ const THREE_DAYS_IN_S = 3 * ONE_DAY_IN_S;
 const THIRTY_DAYS_IN_S = 30 * ONE_DAY_IN_S;
 
 export const { POST } = serve<InitialData>(async (context) => {
-  try {
-    const { email, fullName } = context.requestPayload;
+  const { email, fullName } = context.requestPayload;
 
-    // Welcome email
-    await context.run("new-signup", async () => {
-      await sendEmail({
-        email,
-        subject: "Welcome to Bookwise",
-        body: `Welcome ${fullName}`,
-      });
+  // Welcome email
+  await context.run("new-signup", async () => {
+    await sendEmail({
+      email,
+      subject: "Welcome to Bookwise",
+      body: `Welcome ${fullName}`,
+    });
+  });
+
+  await context.sleep("wait-for-3-days", THREE_DAYS_IN_S);
+
+  while (true) {
+    const state = await context.run("check-user-state", async () => {
+      return await getUserState(email);
     });
 
-    await context.sleep("wait-for-3-days", THREE_DAYS_IN_S);
-
-    while (true) {
-      const state = await context.run("check-user-state", async () => {
-        return await getUserState(email);
+    if (state === "non-active") {
+      await context.run("send-email-non-active", async () => {
+        await sendEmail({
+          email,
+          subject: "Are you still there?",
+          body: `Hey, ${fullName} We missed you!`,
+        });
       });
-
-      if (state === "non-active") {
-        await context.run("send-email-non-active", async () => {
-          await sendEmail({
-            email,
-            subject: "Are you still there?",
-            body: `Hey, ${fullName} We missed you!`,
-          });
+    } else if (state === "active") {
+      await context.run("send-email-active", async () => {
+        await sendEmail({
+          email,
+          subject: "Welcome back",
+          body: `Welcome back ${fullName}!`,
         });
-      } else if (state === "active") {
-        await context.run("send-email-active", async () => {
-          await sendEmail({
-            email,
-            subject: "Welcome back",
-            body: `Welcome back ${fullName}!`,
-          });
-        });
-      }
-
-      await context.sleep("wait-for-1-month", THIRTY_DAYS_IN_S);
+      });
     }
-  } catch (error) {
-    console.error(error);
+
+    await context.sleep("wait-for-1-month", THIRTY_DAYS_IN_S);
   }
 });
 
